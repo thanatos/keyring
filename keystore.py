@@ -2,17 +2,17 @@ import base64 as _base64
 import gzip
 import io
 import json
-import os
+import os as _os
 import subprocess as _subprocess
-import tempfile
+import tempfile as _tempfile
 
-import gnupg
+import gnupg as _gnupg
 
 
 class Gpg(object):
     def __init__(self):
-        self._temp_dir = tempfile.mkdtemp()
-        self.gpg = gnupg.GPG(gnupghome=self._temp_dir)
+        self._temp_dir = _tempfile.mkdtemp()
+        self.gpg = _gnupg.GPG(gnupghome=self._temp_dir)
         self.closed = False
 
     def close(self):
@@ -75,7 +75,7 @@ def write_keystore(filename, gpg, passphrase, data, cipher=None):
         armor=False,
     )
 
-    fd = os.open(filename, os.O_WRONLY, 0o600)
+    fd = _os.open(filename, _os.O_WRONLY, 0o600)
     with open(filename, 'wb') as fh:
         fh.write(encrypted_data.data)
 
