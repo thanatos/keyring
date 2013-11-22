@@ -75,8 +75,14 @@ def write_keystore(filename, gpg, passphrase, data, cipher=None):
         armor=False,
     )
 
-    fd = _os.open(filename, _os.O_WRONLY, 0o600)
-    with open(filename, 'wb') as fh:
+    fd = _os.open(filename, _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC, 0o600)
+    try:
+        fh = _os.fdopen(fd, 'wb')
+    except:
+        _os.close(fd)
+        raise
+
+    with fh:
         fh.write(encrypted_data.data)
 
 
