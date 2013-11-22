@@ -1,57 +1,74 @@
-import base64
+import base64 as _base64
 import gzip
 import io
 import json
-import subprocess
+import os
+import subprocess as _subprocess
 import tempfile
 
 import gnupg
 
 
-def get_gpg():
-    dirname = tempfile.mkdtemp()
+class Gpg(object):
+    def __init__(self):
+        self._temp_dir = tempfile.mkdtemp()
+        self.gpg = gnupg.GPG(gnupghome=self._temp_dir)
+        self.closed = False
 
-    gpg = gnupg.GPG(gnupghome=dirname)
-    def clean_gpg():
-        subprocess.call(['rm', '-rf', '--', dirname])
+    def close(self):
+        if not self.closed:
+            self.gpg = None
+            _subprocess.call(['rm', '-rf', '--', self._temp_dir])
+            self.closed = True
 
-    return gpg, clean_gpg
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_value, exc_type, traceback):
+        self.close()
+        return False
 
 
-def read_keystore(filename, gpg, passphrase):
-    with open(filename, 'rb') as fh:
-        data = gpg.decrypt_file(fh, passphrase=passphrase)
+def _base64_encode(data):
+    return _base64.b64encode(data).decode('ascii')
 
-    data_stream = io.BytesIO(data.data)
-    with gzip.GzipFile(fileobj=data_stream, mode='rb') as gzfile:
-        json_data = gzfile.read().decode('utf-8')
-    raw_data = json.loads(json_data)
+def _base64_decode(encoded_data):
+    return _base64.b64decode(encoded_data.encode('ascii'))
 
-    for k in raw_data:
-        pre_decode_v = raw_data[k]
-        # b64decode strangely uses bytes, not str…
-        v = base64.b64decode(pre_decode_v.encode('ascii'))
-        raw_data[k] = v
-    return raw_data
+
+class DataBlob(object):
+    def __init__(self, mimetype, data):
+        self.mimetype = mimetype
+        self.data = data
+
+    def __repr__(self):
+        return '{}.{}({!r}, {!r})'.format(
+            self.__class__.__module__, self.__class__.__name__,
+            self.mimetype, self.data
+        )
 
 
 def write_keystore(filename, gpg, passphrase, data, cipher=None):
     actual_data = {}
-    for k, v in data.items():
-        encoded_v = base64.b64encode(v)
-        # b64encode strangely gives use bytes, not str…
-        encoded_v = encoded_v.decode('ascii')
-        actual_data[k] = encoded_v
 
-    json_data = json.dumps(actual_data).encode('utf-8')
+    for k, blob in data.items():
+        actual_data[k] = {
+            'type': blob.mimetype,
+            'data': _base64_encode(blob.data),
+        }
 
-    data_stream = io.BytesIO()
-    with gzip.GzipFile(fileobj=data_stream, mode='wb') as gzfile:
-        gzfile.write(json_data)
+    raw_stream = io.BytesIO()
+    gzip_stream = gzip.GzipFile(fileobj=raw_stream, mode='wb')
+    text_stream = io.TextIOWrapper(gzip_stream, encoding='utf-8')
+    json.dump(actual_data, text_stream)
+    text_stream.close()  # will close gzip_stream too.
+
+    print('raw_stream = {!r}'.format(raw_stream.closed))
+    print('About to write:\n{!r}'.format(raw_stream.getvalue()))
 
     cipher = True if cipher is None else cipher
     encrypted_data = gpg.encrypt(
-        data_stream.getvalue(),
+        raw_stream.getvalue(),
         None,
         passphrase=passphrase,
         symmetric=cipher,
@@ -61,3 +78,20 @@ def write_keystore(filename, gpg, passphrase, data, cipher=None):
     fd = os.open(filename, os.O_WRONLY, 0o600)
     with open(filename, 'wb') as fh:
         fh.write(encrypted_data.data)
+
+
+def read_keystore(filename, gpg, passphrase):
+    with open(filename, 'rb') as fh:
+        decrypted_data = gpg.decrypt_file(fh, passphrase=passphrase)
+
+    data_stream = io.BytesIO(decrypted_data.data)
+    gzip_stream = gzip.GzipFile(fileobj=data_stream, mode='rb')
+    text_stream = io.TextIOWrapper(gzip_stream, encoding='utf-8')
+    json_data = json.load(text_stream)
+
+    actual_data = {}
+    for k, v in json_data.items():
+        mimetype = v['type']
+        data = _base64_decode(v['data'])
+        actual_data[k] = DataBlob(mimetype, data)
+    return actual_data
