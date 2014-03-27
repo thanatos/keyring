@@ -25,9 +25,11 @@ encoded.
 This mapping is then:
 
 1. JSON encoded.
-2. Gzip'd.
+2. Gzip'd. (N.b., it is *not* zlib compressed, but rather a full gzip file.)
 3. Encrypted using GPG, using a symmetric cipher, password only.
 4. Written to disk.
+
+This file format is designed to be recoverable by hand, if need be.
 
 
 Login Credential Format

@@ -1,7 +1,8 @@
 import base64 as _base64
-import gzip
-import io
-import json
+import functools as _functools
+import gzip as _gzip
+import io as _io
+import json as _json
 import os as _os
 import subprocess as _subprocess
 import tempfile as _tempfile
@@ -47,8 +48,34 @@ class DataBlob(object):
             self.mimetype, self.data
         )
 
+    def __eq__(self, other):
+        return (self.mimetype == other.mimetype and self.data == other.data)
 
-def write_keystore(filename, gpg, passphrase, data, cipher=None):
+    def __ne__(self, other):
+        return not (self == other)
+
+
+class DecryptionError(Exception):
+    pass
+
+
+def _wrap_gpg(f):
+    @_functools.wraps(f)
+    def wrapper(*args, **kwargs):
+        own_gpg_wrapper = None
+        try:
+            if 'gpg' not in kwargs or kwargs['gpg'] is None:
+                own_gpg_wrapper = Gpg()
+                kwargs['gpg'] = own_gpg_wrapper.gpg
+            return f(*args, **kwargs)
+        finally:
+            if own_gpg_wrapper is not None:
+                own_gpg_wrapper.close()
+    return wrapper
+
+
+@_wrap_gpg
+def write_keystore(filename, passphrase, data, cipher=None, gpg=None):
     actual_data = {}
 
     for k, blob in data.items():
@@ -57,14 +84,16 @@ def write_keystore(filename, gpg, passphrase, data, cipher=None):
             'data': _base64_encode(blob.data),
         }
 
-    raw_stream = io.BytesIO()
-    gzip_stream = gzip.GzipFile(fileobj=raw_stream, mode='wb')
-    text_stream = io.TextIOWrapper(gzip_stream, encoding='utf-8')
-    json.dump(actual_data, text_stream)
-    text_stream.close()  # will close gzip_stream too.
-
-    print('raw_stream = {!r}'.format(raw_stream.closed))
-    print('About to write:\n{!r}'.format(raw_stream.getvalue()))
+    raw_stream = _io.BytesIO()
+    text_stream = None
+    gzip_stream = _gzip.GzipFile(fileobj=raw_stream, mode='wb')
+    try:
+        text_stream = _io.TextIOWrapper(gzip_stream, encoding='utf-8')
+        _json.dump(actual_data, text_stream)
+    finally:
+        if text_stream is not None:
+            text_stream.close()
+        gzip_stream.close()
 
     cipher = True if cipher is None else cipher
     encrypted_data = gpg.encrypt(
@@ -75,25 +104,38 @@ def write_keystore(filename, gpg, passphrase, data, cipher=None):
         armor=False,
     )
 
-    fd = _os.open(filename, _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC, 0o600)
+    temp_filename = filename + '.writing'
+    fd = _os.open(temp_filename, _os.O_WRONLY | _os.O_CREAT | _os.O_TRUNC, 0o600)
     try:
-        fh = _os.fdopen(fd, 'wb')
+        try:
+            fh = _os.fdopen(fd, 'wb')
+        except:
+            _os.close(fd)
+            raise
+
+        with fh:
+            fh.write(encrypted_data.data)
+
+        _os.rename(temp_filename, filename)
     except:
-        _os.close(fd)
-        raise
-
-    with fh:
-        fh.write(encrypted_data.data)
+        _os.unlink(temp_filename)
 
 
-def read_keystore(filename, gpg, passphrase):
+@_wrap_gpg
+def read_keystore(filename, passphrase, gpg=None):
     with open(filename, 'rb') as fh:
         decrypted_data = gpg.decrypt_file(fh, passphrase=passphrase)
 
-    data_stream = io.BytesIO(decrypted_data.data)
-    gzip_stream = gzip.GzipFile(fileobj=data_stream, mode='rb')
-    text_stream = io.TextIOWrapper(gzip_stream, encoding='utf-8')
-    json_data = json.load(text_stream)
+    if not decrypted_data.ok:
+        raise DecryptionError()
+
+    data_stream = _io.BytesIO(decrypted_data.data)
+    gzip_stream = _gzip.GzipFile(fileobj=data_stream, mode='rb')
+    try:
+        text_stream = _io.TextIOWrapper(gzip_stream, encoding='utf-8')
+        json_data = _json.load(text_stream)
+    finally:
+        gzip_stream.close()
 
     actual_data = {}
     for k, v in json_data.items():
