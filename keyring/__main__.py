@@ -116,8 +116,9 @@ def ks_create(args):
 
     if os.path.exists(args.filename):
         sys.stderr.write(
-            'File “{}” already exists; please remove it if you want to'
-            ' overwrite it with a new keystore.\n'.format(args.filename))
+            'File “{}” already exists; refusing to overwrite it in case you'
+            ' want it. Please move or remove it if you want to overwrite it'
+            ' with a new keystore.\n'.format(args.filename))
         sys.exit(1)
 
     password = getpass.getpass()
