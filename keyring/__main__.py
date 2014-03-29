@@ -10,6 +10,42 @@ from . import keystore
 from . import _term
 
 
+def _check_keyring_path_mode(path, expected_mode, type_str):
+    stat = os.stat(path)
+    if stat.st_mode & 0o777 != expected_mode:
+        sys.stderr.write(
+            'WARNING: Permissions on {0} are too permisive. They are {1}'
+            ' instead of {2}, recommend running:\n'
+            '  chmod {2} \'{0}\'\n'
+            'to better protect data in that {3}.\n'.format(
+                path,
+                oct(stat.st_mode & 0o777)[2:], oct(expected_mode)[2:],
+                type_str
+            )
+        )
+
+
+def _check_keyring_file_mode(keyring_file):
+    _check_keyring_path_mode(keyring_file, 0o600, 'file')
+
+def _check_keyring_dir_mode(keyring_dir):
+    _check_keyring_path_mode(keyring_dir, 0o700, 'directory')
+
+
+def _get_default_filename():
+    return os.path.join(os.environ['HOME'], '.keyring', 'keyring')
+
+def _get_filename(args):
+    filename = args.filename
+    if filename is None:
+        filename = _get_default_filename()
+        _check_keyring_dir_mode(os.path.dirname(filename))
+
+    _check_keyring_file_mode(filename)
+
+    return filename
+
+
 def load_keystore(filename, password=None):
     if password is None:
         password = getpass.getpass()
@@ -22,7 +58,11 @@ def load_keystore(filename, password=None):
 
 
 def ks_list(args):
-    objects = load_keystore(args.filename)
+    filename = _get_filename(args)
+    objects = load_keystore(filename)
+
+    if not objects:
+        sys.stdout.write('Nothing in the keyring.\n')
 
     for name, obj in objects.items():
         sys.stdout.write(
@@ -33,7 +73,8 @@ def ks_list(args):
 
 
 def ks_get(args):
-    objects = load_keystore(args.filename)
+    filename = _get_filename(args)
+    objects = load_keystore(filename)
 
     if args.key not in objects:
         sys.stderr.write(
@@ -47,8 +88,9 @@ def ks_get(args):
 
 
 def ks_set(args):
+    filename = _get_filename(args)
     password = getpass.getpass()
-    objects = load_keystore(args.filename, password)
+    objects = load_keystore(filename, password)
 
     if args.key in objects:
         sys.stderr.write(
@@ -60,10 +102,18 @@ def ks_set(args):
     data = sys.stdin.buffer.read()
     mimetype = args.mimetype
     objects[args.key] = keystore.DataBlob(mimetype, data)
-    keystore.write_keystore(args.filename, password, objects)
+    keystore.write_keystore(filename, password, objects)
 
 
 def ks_create(args):
+    keyring_path = os.path.join(os.environ['HOME'], '.keyring')
+    if args.filename is None:
+        if not os.path.exists(keyring_path):
+            os.mkdir(keyring_path, 0o700)
+        else:
+            _check_keyring_dir_mode(keyring_path)
+        args.filename = os.path.join(keyring_path, 'keyring')
+
     if os.path.exists(args.filename):
         sys.stderr.write(
             'File “{}” already exists; please remove it if you want to'
@@ -89,17 +139,17 @@ def main(args):
     }
 
     create_parser = subparsers.add_parser('create', help='create a new keystore')
-    create_parser.add_argument('filename')
+    create_parser.add_argument('-f', action='store', dest='filename')
 
     list_parser = subparsers.add_parser('list', help='list entries')
-    list_parser.add_argument('filename')
+    list_parser.add_argument('-f', action='store', dest='filename')
 
     get_parser = subparsers.add_parser('get', help='get entry')
-    get_parser.add_argument('filename')
+    get_parser.add_argument('-f', action='store', dest='filename')
     get_parser.add_argument('key')
 
     set_parser = subparsers.add_parser('set', help='set an entry to a value')
-    set_parser.add_argument('filename')
+    set_parser.add_argument('-f', action='store', dest='filename')
     set_parser.add_argument('key')
     set_parser.add_argument('mimetype')
 
