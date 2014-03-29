@@ -6,8 +6,8 @@ import getpass
 import os.path
 import sys
 
-import keystore
-import term
+from . import keystore
+from . import _term
 
 
 def load_keystore(filename, password=None):
@@ -27,7 +27,7 @@ def ks_list(args):
     for name, obj in objects.items():
         sys.stdout.write(
             '• {t.BOLD}{}{t.RESET} ({})\n'.format(
-                name, obj.mimetype, t=term
+                name, obj.mimetype, t=_term
             )
         )
 
