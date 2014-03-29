@@ -105,6 +105,21 @@ def ks_set(args):
     keystore.write_keystore(filename, password, objects)
 
 
+def ks_delete(args):
+    filename = _get_filename(args)
+    password = getpass.getpass()
+    objects = load_keystore(filename, password)
+
+    if args.key not in objects:
+        sys.stderr.write(
+            'Key “{}” does not exist in keystore.\n'.format(args.key)
+        )
+        sys.exit(1)
+
+    del objects[args.key]
+    keystore.write_keystore(filename, password, objects)
+
+
 def ks_create(args):
     keyring_path = os.path.join(os.environ['HOME'], '.keyring')
     if args.filename is None:
@@ -142,6 +157,7 @@ def main(args):
         'list': ks_list,
         'get': ks_get,
         'set': ks_set,
+        'delete': ks_delete,
     }
 
     create_parser = subparsers.add_parser('create', help='create a new keystore')
@@ -158,6 +174,10 @@ def main(args):
     set_parser.add_argument('-f', action='store', dest='filename')
     set_parser.add_argument('key')
     set_parser.add_argument('mimetype')
+
+    delete_parser = subparsers.add_parser('delete', help='delete an entry')
+    delete_parser.add_argument('-f', action='store', dest='filename')
+    delete_parser.add_argument('key')
 
     pargs = parser.parse_args(args)
     if pargs.command is not None:
