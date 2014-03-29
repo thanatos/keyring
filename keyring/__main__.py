@@ -122,6 +122,11 @@ def ks_create(args):
         sys.exit(1)
 
     password = getpass.getpass()
+    confirmed = getpass.getpass('Confirm password: ')
+
+    if password != confirmed:
+        sys.stderr.write('Passwords did not match.\n')
+        sys.exit(1)
 
     keystore.write_keystore(args.filename, password, {})
 
