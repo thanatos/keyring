@@ -46,6 +46,15 @@ def _get_filename(args):
     return filename
 
 
+def _prompt(what):
+    sys.stdout.write('{}: '.format(
+        what
+    ))
+    sys.stdout.flush()
+    line = sys.stdin.readline()
+    return line.strip()
+
+
 def load_keystore(filename, password=None):
     if password is None:
         password = getpass.getpass()
@@ -76,15 +85,15 @@ def ks_get(args):
     filename = _get_filename(args)
     objects = load_keystore(filename)
 
-    if args.key not in objects:
+    key = _prompt("Key")
+
+    if key not in objects:
         sys.stderr.write(
-            'No such key “{}” in keystore.\n'.format(
-                args.key
-            )
+            'No such key “{}” in keystore.\n'.format(key)
         )
         sys.exit(1)
     else:
-        sys.stdout.buffer.write(objects[args.key].data)
+        sys.stdout.buffer.write(objects[key].data)
 
 
 def ks_set(args):
@@ -92,16 +101,18 @@ def ks_set(args):
     password = getpass.getpass()
     objects = load_keystore(filename, password)
 
-    if args.key in objects:
+    key = _prompt("Key")
+    if key in objects:
         sys.stderr.write(
-            'Key “{}” already exists in keystore.\n'.format(args.key))
+            'Key “{}” already exists in keystore.\n'.format(key))
         sys.exit(1)
+
+    mimetype = _prompt("Mimetype")
 
     sys.stdout.write('Enter data to store:\n')
     sys.stdout.write('(Send EOF to terminate.)\n')
     data = sys.stdin.buffer.read()
-    mimetype = args.mimetype
-    objects[args.key] = keystore.DataBlob(mimetype, data)
+    objects[key] = keystore.DataBlob(mimetype, data)
     keystore.write_keystore(filename, password, objects)
 
 
@@ -110,13 +121,14 @@ def ks_delete(args):
     password = getpass.getpass()
     objects = load_keystore(filename, password)
 
-    if args.key not in objects:
+    key = _prompt("Key")
+    if key not in objects:
         sys.stderr.write(
-            'Key “{}” does not exist in keystore.\n'.format(args.key)
+            'Key “{}” does not exist in keystore.\n'.format(key)
         )
         sys.exit(1)
 
-    del objects[args.key]
+    del objects[key]
     keystore.write_keystore(filename, password, objects)
 
 
@@ -168,16 +180,12 @@ def main(args):
 
     get_parser = subparsers.add_parser('get', help='get entry')
     get_parser.add_argument('-f', action='store', dest='filename')
-    get_parser.add_argument('key')
 
     set_parser = subparsers.add_parser('set', help='set an entry to a value')
     set_parser.add_argument('-f', action='store', dest='filename')
-    set_parser.add_argument('key')
-    set_parser.add_argument('mimetype')
 
     delete_parser = subparsers.add_parser('delete', help='delete an entry')
     delete_parser.add_argument('-f', action='store', dest='filename')
-    delete_parser.add_argument('key')
 
     pargs = parser.parse_args(args)
     if pargs.command is not None:
