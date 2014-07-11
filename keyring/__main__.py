@@ -213,6 +213,20 @@ def ks_copypw(args):
     print('Copied to the clipboard.')
 
 
+def ks_changepw(args):
+    filename = _get_filename(args)
+    objects = load_keystore(filename)
+
+    new_password = getpass.getpass('New password: ')
+    confirm_password = getpass.getpass('Confirm password: ')
+
+    if new_password != confirm_password:
+        sys.stderr.write('Passwords did not match.\n')
+        sys.exit(1)
+
+    keystore.write_keystore(filename, new_password, objects)
+
+
 def main(args):
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='command')
@@ -224,6 +238,7 @@ def main(args):
         'set': ks_set,
         'delete': ks_delete,
         'copypw': ks_copypw,
+        'change-password': ks_changepw,
     }
 
     def add_filename(parser):
@@ -249,6 +264,11 @@ def main(args):
 
     copypw_parser = subparsers.add_parser('copypw', help='copy a password to the clipboard')
     add_filename(copypw_parser)
+
+    change_password_parser = subparsers.add_parser(
+        'change-password', help='change the password to the keyring'
+    )
+    add_filename(change_password_parser)
 
     pargs = parser.parse_args(args)
     if pargs.command is not None:
