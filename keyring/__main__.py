@@ -226,23 +226,29 @@ def main(args):
         'copypw': ks_copypw,
     }
 
+    def add_filename(parser):
+        parser.add_argument(
+            '-f', action='store', dest='filename',
+            help='the filename of the keyring',
+        )
+
     create_parser = subparsers.add_parser('create', help='create a new keystore')
-    create_parser.add_argument('-f', action='store', dest='filename')
+    add_filename(create_parser)
 
     list_parser = subparsers.add_parser('list', help='list entries')
-    list_parser.add_argument('-f', action='store', dest='filename')
+    add_filename(list_parser)
 
     get_parser = subparsers.add_parser('get', help='get entry')
-    get_parser.add_argument('-f', action='store', dest='filename')
+    add_filename(get_parser)
 
     set_parser = subparsers.add_parser('set', help='set an entry to a value')
-    set_parser.add_argument('-f', action='store', dest='filename')
+    add_filename(set_parser)
 
     delete_parser = subparsers.add_parser('delete', help='delete an entry')
-    delete_parser.add_argument('-f', action='store', dest='filename')
+    add_filename(delete_parser)
 
     copypw_parser = subparsers.add_parser('copypw', help='copy a password to the clipboard')
-    copypw_parser.add_argument('-f', action='store', dest='filename')
+    add_filename(copypw_parser)
 
     pargs = parser.parse_args(args)
     if pargs.command is not None:
