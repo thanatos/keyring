@@ -3,7 +3,10 @@
 
 import argparse
 import getpass
+import io
+import json
 import os.path
+import subprocess
 import sys
 
 from . import keystore
@@ -81,8 +84,7 @@ def ks_list(args):
         )
 
 
-def ks_get(args):
-    filename = _get_filename(args)
+def _interactive_get(filename):
     objects = load_keystore(filename)
 
     key = _prompt("Key")
@@ -93,7 +95,13 @@ def ks_get(args):
         )
         sys.exit(1)
     else:
-        sys.stdout.buffer.write(objects[key].data)
+        return objects[key]
+
+
+def ks_get(args):
+    filename = _get_filename(args)
+    obj = _interactive_get(filename)
+    sys.stdout.buffer.write(obj.data)
 
 
 def ks_set(args):
@@ -158,6 +166,53 @@ def ks_create(args):
     keystore.write_keystore(args.filename, password, {})
 
 
+def ks_copypw(args):
+    filename = _get_filename(args)
+    obj = _interactive_get(filename)
+    if obj.mimetype != 'application/login+json':
+        sys.stderr.write('Object doesn\'t appear to contain login details.\n')
+        sys.exit(1)
+    data = json.loads(obj.data.decode('utf-8'))
+    if 1 < len(data):
+        while True:
+            sys.stdout.write(
+                'Multiple logins under this name. Enter which one to copy:\n'
+            )
+            name_to_number = {}
+            for n, login in enumerate(data, start=1):
+                if 'username' not in login and 'email' not in login:
+                    sys.stderr.write(
+                        'Couldn\'t determine a name for login #{}.\n'.format(n)
+                    )
+                    continue
+                else:
+                    sys.stdout.write(
+                        '{}. {}'.format(n, name)
+                    )
+                    if name in name_to_number:
+                        name_to_number[name] = None
+                    else:
+                        name_to_number[name] = n
+            sys.stdout.write('Selection? [number or name] ')
+            sys.stdout.flush()
+            selection = sys.stdin.readline().strip()
+            try:
+                selection = int(selection)
+            except ValueError:
+                is_number = False
+    else:
+        which = data[0]
+
+    password_file_obj = io.BytesIO()
+    password_file_obj.write(which['password'].encode('utf-8'))
+    copy_program = ['xsel', '-b']
+    proc = subprocess.Popen(copy_program, stdin=subprocess.PIPE)
+    proc.communicate(which['password'].encode('utf-8'))
+    if proc.returncode != 0:
+        sys.exit(1)
+    print('Copied to the clipboard.')
+
+
 def main(args):
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='command')
@@ -168,6 +223,7 @@ def main(args):
         'get': ks_get,
         'set': ks_set,
         'delete': ks_delete,
+        'copypw': ks_copypw,
     }
 
     create_parser = subparsers.add_parser('create', help='create a new keystore')
@@ -184,6 +240,9 @@ def main(args):
 
     delete_parser = subparsers.add_parser('delete', help='delete an entry')
     delete_parser.add_argument('-f', action='store', dest='filename')
+
+    copypw_parser = subparsers.add_parser('copypw', help='copy a password to the clipboard')
+    copypw_parser.add_argument('-f', action='store', dest='filename')
 
     pargs = parser.parse_args(args)
     if pargs.command is not None:
