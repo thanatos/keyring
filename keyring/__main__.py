@@ -162,8 +162,6 @@ def main(args):
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='command')
 
-    ks_parser = subparsers.add_parser('keystore')
-
     commands = {
         'create': ks_create,
         'list': ks_list,
