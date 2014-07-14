@@ -6,6 +6,7 @@ import getpass
 import io
 import json
 import os.path
+import platform
 import subprocess
 import sys
 
@@ -205,7 +206,10 @@ def ks_copypw(args):
 
     password_file_obj = io.BytesIO()
     password_file_obj.write(which['password'].encode('utf-8'))
-    copy_program = ['xsel', '-b']
+    if platform.system() == 'Darwin':
+        copy_program = ['pbcopy']
+    else:
+        copy_program = ['xsel', '-b']
     proc = subprocess.Popen(copy_program, stdin=subprocess.PIPE)
     proc.communicate(which['password'].encode('utf-8'))
     if proc.returncode != 0:
