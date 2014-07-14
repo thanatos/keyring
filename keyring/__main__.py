@@ -179,7 +179,8 @@ def ks_copypw(args):
             sys.stdout.write(
                 'Multiple logins under this name. Enter which one to copy:\n'
             )
-            name_to_number = {}
+            number_to_login = {}
+            name_to_login = {}
             for n, login in enumerate(data, start=1):
                 if 'username' not in login and 'email' not in login:
                     sys.stderr.write(
@@ -190,10 +191,11 @@ def ks_copypw(args):
                     sys.stdout.write(
                         '{}. {}'.format(n, name)
                     )
-                    if name in name_to_number:
-                        name_to_number[name] = None
+                    if name in name_to_login:
+                        name_to_login[name] = None
                     else:
-                        name_to_number[name] = n
+                        name_to_login[name] = login
+                    number_to_login[n] = login
             sys.stdout.write('Selection? [number or name] ')
             sys.stdout.flush()
             selection = sys.stdin.readline().strip()
@@ -201,6 +203,10 @@ def ks_copypw(args):
                 selection = int(selection)
             except ValueError:
                 is_number = False
+            if is_number:
+                which = number_to_login[selection]
+            else:
+                which = name_to_login[selection]
     else:
         which = data[0]
 
