@@ -35,14 +35,34 @@ def _check_keyring_file_mode(keyring_file):
 def _check_keyring_dir_mode(keyring_dir):
     _check_keyring_path_mode(keyring_dir, 0o700, 'directory')
 
+def _check_keyring_args(args):
+    if args.filename is not None and args.keyring is not None:
+        sys.stderr.write(
+            'You can only specify one of --keyring (-k) and --keyring-file'
+            ' (-f). (They specify which file is your keyring, but in different'
+            ' ways. By passing both options, you\'ve given me two conflicting'
+            ' locations for your keyring.\n'
+        )
+        sys.exit(1)
 
-def _get_default_filename():
-    return os.path.join(os.environ['HOME'], '.keyring', 'keyring')
+def _get_keyring_by_name(keyring_name):
+    return os.path.join(os.environ['HOME'], '.keyring', keyring_name)
+
+def _get_keyring_filename_from_keyring_arg(args):
+    if args.keyring is not None:
+        keyring_name = args.keyring
+    else:
+        keyring_name = 'keyring'
+    return _get_keyring_by_name(keyring_name)
+
 
 def _get_filename(args):
-    filename = args.filename
-    if filename is None:
-        filename = _get_default_filename()
+    _check_keyring_args(args)
+
+    if args.filename is not None:
+        filename = args.filename
+    else:
+        filename = _get_keyring_filename_from_keyring_arg(args)
         _check_keyring_dir_mode(os.path.dirname(filename))
 
     _check_keyring_file_mode(filename)
@@ -142,13 +162,14 @@ def ks_delete(args):
 
 
 def ks_create(args):
+    _check_keyring_args(args)
     keyring_path = os.path.join(os.environ['HOME'], '.keyring')
     if args.filename is None:
         if not os.path.exists(keyring_path):
             os.mkdir(keyring_path, 0o700)
         else:
             _check_keyring_dir_mode(keyring_path)
-        args.filename = os.path.join(keyring_path, 'keyring')
+        args.filename = _get_keyring_filename_from_keyring_arg(args)
 
     if os.path.exists(args.filename):
         sys.stderr.write(
@@ -275,8 +296,15 @@ def main(args):
 
     def add_filename(parser):
         parser.add_argument(
-            '-f', action='store', dest='filename',
+            '-f', '--keyring-file',
+            action='store', dest='filename',
             help='the filename of the keyring',
+        )
+        parser.add_argument(
+            '-k', '--keyring',
+            action='store', dest='keyring',
+            help=('the name of the keyring.\nThis looks for a keyring file'
+                  ' with this name in ~/.keyring.')
         )
 
     create_parser = subparsers.add_parser('create', help='create a new keystore')
