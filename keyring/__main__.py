@@ -167,6 +167,62 @@ def ks_create(args):
     keystore.write_keystore(args.filename, password, {})
 
 
+def _choose_login_interactively(logins):
+    """Choose a login interactively.
+
+    A JSON login file (application/login+json) can store multiple logins.
+    (e.g., multiple accounts on a single website.) This routine returns the
+    only login if there is only one, or prompts the user to choose one if there
+    is more than one.
+    """
+    if len(logins) == 1:
+        return logins[0]
+
+    number_to_login = {}
+    name_to_login = {}
+    considering_logins = []
+
+    def _get_name_from_login(login):
+        if 'username' in login:
+            return login['username']
+        else:
+            return login['email']
+
+    for n, login in enumerate(logins, start=1):
+        if 'username' not in login and 'email' not in login:
+            sys.stderr.write(
+                'Couldn\'t determine a name for login #{}.\n'.format(n)
+            )
+            continue
+        else:
+            considering_logins.append(login)
+            name = _get_name_from_login(login)
+            if name in name_to_login:
+                name_to_login[name] = None
+            else:
+                name_to_login[name] = login
+            number_to_login[n] = login
+
+    while True:
+        for n, login in enumerate(considering_logins, start=1):
+            name = _get_name_from_login(login)
+            sys.stdout.write(
+                '{}. {}\n'.format(n, name)
+            )
+        sys.stdout.write('\x1b[1mSelection? [number or name]\x1b[0m ')
+        sys.stdout.flush()
+        selection = sys.stdin.readline().strip()
+        is_number = True
+        try:
+            selection = int(selection)
+        except ValueError:
+            is_number = False
+        if is_number:
+            return number_to_login[selection]
+        else:
+            return name_to_login[selection]
+
+
 def ks_copypw(args):
     filename = _get_filename(args)
     obj = _interactive_get(filename)
@@ -174,50 +230,16 @@ def ks_copypw(args):
         sys.stderr.write('Object doesn\'t appear to contain login details.\n')
         sys.exit(1)
     data = json.loads(obj.data.decode('utf-8'))
-    if 1 < len(data):
-        while True:
-            sys.stdout.write(
-                'Multiple logins under this name. Enter which one to copy:\n'
-            )
-            number_to_login = {}
-            name_to_login = {}
-            for n, login in enumerate(data, start=1):
-                if 'username' not in login and 'email' not in login:
-                    sys.stderr.write(
-                        'Couldn\'t determine a name for login #{}.\n'.format(n)
-                    )
-                    continue
-                else:
-                    sys.stdout.write(
-                        '{}. {}'.format(n, name)
-                    )
-                    if name in name_to_login:
-                        name_to_login[name] = None
-                    else:
-                        name_to_login[name] = login
-                    number_to_login[n] = login
-            sys.stdout.write('Selection? [number or name] ')
-            sys.stdout.flush()
-            selection = sys.stdin.readline().strip()
-            try:
-                selection = int(selection)
-            except ValueError:
-                is_number = False
-            if is_number:
-                which = number_to_login[selection]
-            else:
-                which = name_to_login[selection]
-    else:
-        which = data[0]
+    login = _choose_login_interactively(data)
 
     password_file_obj = io.BytesIO()
-    password_file_obj.write(which['password'].encode('utf-8'))
+    password_file_obj.write(login['password'].encode('utf-8'))
     if platform.system() == 'Darwin':
         copy_program = ['pbcopy']
     else:
         copy_program = ['xsel', '-b']
     proc = subprocess.Popen(copy_program, stdin=subprocess.PIPE)
-    proc.communicate(which['password'].encode('utf-8'))
+    proc.communicate(login['password'].encode('utf-8'))
     if proc.returncode != 0:
         sys.exit(1)
     print('Copied to the clipboard.')
