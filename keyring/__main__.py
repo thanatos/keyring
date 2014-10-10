@@ -97,7 +97,8 @@ def ks_list(args):
     if not objects:
         sys.stdout.write('Nothing in the keyring.\n')
 
-    for name, obj in objects.items():
+    for name in sorted(objects.keys()):
+        obj = objects[name]
         sys.stdout.write(
             '• {t.BOLD}{}{t.RESET} ({})\n'.format(
                 name, obj.mimetype, t=_term
