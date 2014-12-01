@@ -78,10 +78,36 @@ def make_password(alphabet, length):
 
 
 def make_wifi_aes_key():
+    """Generate a WiFi AES key at random."""
     with open('/dev/random', 'rb') as rand_fh:
         raw_key = rand_fh.read(256 / 8)
 
     return ''.join('{0:02x}'.format(ord(b)) for b in raw_key)
+
+
+def correct_horse_battery_staple(count):
+    """Generate a passphrase with the given number of words.
+
+    This function is an implementation of Randall Munroe's `"correct horse
+    battery staple" <xkcd-936>`_ method. It chooses, at random, ``count`` words
+    from the dictionary, and then concatenates them.
+
+    .. _xkcd-936: https://xkcd.com/936/
+    """
+    words = []
+    with open('/usr/share/dict/words', 'r') as wordfile:
+        for word in wordfile:
+            word = word.strip()
+            if word:
+                words.append(word)
+
+    password = []
+    with open('/dev/random', 'rb') as rand_fh:
+        for _ in _range(count):
+            idx = random_integer(rand_fh, len(words))
+            password.append(words[idx])
+
+    return '-'.join(password)
 
 
 def main(args):
@@ -94,6 +120,9 @@ def main(args):
     password_parser.add_argument('alphabet')
     password_parser.add_argument('length', type=int)
 
+    staple_parser = subparsers.add_parser('correct-horse')
+    staple_parser.add_argument('--count', '-n', type=int, default=4)
+
     pargs = parser.parse_args(args)
 
     if pargs.command == 'wifi-aes':
@@ -105,6 +134,9 @@ def main(args):
             alphabet += ALPHABETS[symbol_set.lower()]
         _print('Using alphabet:\n{!r}'.format(alphabet))
         _print(make_password(alphabet, pargs.length))
+    elif pargs.command == 'correct-horse':
+        password = correct_horse_battery_staple(pargs.count)
+        _print('{}'.format(password))
     else:
         parser.print_usage(_sys.stderr)
         _sys.exit(1)
