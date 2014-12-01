@@ -114,14 +114,29 @@ def main(args):
     parser = _argparse.ArgumentParser()
     subparsers = parser.add_subparsers(dest='command')
 
-    wifi_parser = subparsers.add_parser('wifi-aes')
+    wifi_parser = subparsers.add_parser(
+        'wifi-aes',
+        help='Generate a WiFi AES key randomly.',
+    )
 
-    password_parser = subparsers.add_parser('password')
+    password_parser = subparsers.add_parser(
+        'password',
+        help='Generate a random password.',
+    )
     password_parser.add_argument('alphabet')
-    password_parser.add_argument('length', type=int)
+    password_parser.add_argument(
+        'length', type=int,
+        help='The number of characters in the random password.',
+    )
 
-    staple_parser = subparsers.add_parser('correct-horse')
-    staple_parser.add_argument('--count', '-n', type=int, default=4)
+    staple_parser = subparsers.add_parser(
+        'correct-horse',
+        help='Generate a random passphrase.',
+    )
+    staple_parser.add_argument(
+        '--words', '-n', type=int, default=4,
+        help='The number of words in the generated passphrase.',
+    )
 
     pargs = parser.parse_args(args)
 
