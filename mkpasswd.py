@@ -60,6 +60,8 @@ def select_letter(rand_fh, alphabet):
 
 
 def make_password(alphabet, length):
+    """Generate a password of the given length from the given alphabet."""
+
     _print('Generating password.')
     password = []
     try:
