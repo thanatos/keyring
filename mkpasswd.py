@@ -26,26 +26,37 @@ ALPHABETS = {
 }
 
 
-def select_letter(rand_fh, alphabet):
-    # The following is to ensure that we give exactly equal weight to each
-    # character. It does this by picking an integer between [0, 2 ** 32 - 1],
-    # and assigns the characters to this range in a modulo fashion. Depending
-    # on the number of characters available, there's probably a bit of space at
-    # the end that doesn't contain the full set: this space is the "unpickable"
-    # area, and if the random number lands there, it will be re-rolled.
-    #
-    # Of course, this means that worst case, we loop forever. However, the
-    # longer we loop, the more likely we obtain a usable character, and in
-    # practice, this loop should terminate.
-    usable_choices = 2 ** 32 // len(alphabet) * len(alphabet)
+def random_integer(rand_fh, upper):
+    """Generate a random integer in [0, ``upper``) uniformly.
+
+    This function chooses an integer from the range [0, ``upper``] uniformly.
+    It *might* loop for an indeterminate length of time, if it isn't able to
+    generate a suitable integer.
+    """
+
+    # Because we read random numbers as uint32s, we can only support numbers
+    # representable as uint32s.
+    assert upper < 2 ** 32, 'upper argument is out of range.'
+
+    # This is the number of random numbers that we can use. There will be a bit
+    # of "slack" at the top of the range that the RNG gives us, we simply can't
+    # use these without making the distribution non-uniform.
+    usable_choices = 2 ** 32 // upper * upper
 
     while True:
         data = rand_fh.read(4)
         n = _struct.unpack('>I', data)[0]
         if not (n < usable_choices):
             continue
-        idx = n // (2 ** 32 // len(alphabet))
-        return alphabet[idx]
+        actual_n = n % upper
+        return actual_n
+
+
+def select_letter(rand_fh, alphabet):
+    """Chooses uniformly at random a letter from the given alphabet."""
+
+    index = random_integer(rand_fh, len(alphabet))
+    return alphabet[index]
 
 
 def make_password(alphabet, length):
