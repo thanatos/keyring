@@ -1,6 +1,8 @@
 #!/usr/bin/python
 # encoding: utf-8
 
+from __future__ import print_function as _
+
 import argparse as _argparse
 import struct as _struct
 import sys as _sys
@@ -8,14 +10,8 @@ import sys as _sys
 
 # This program is a Python 2/3 ployglot. The following are support functions:
 if _sys.version_info.major == 2:
-    def _print(s):
-        eval('print s', None, {'s': s})
-
     _range = xrange
 else:
-    def _print(s):
-        eval('print(s)', None, {'s': s})
-
     _range = range
 
 
@@ -63,7 +59,7 @@ def select_letter(rand_fh, alphabet):
 def make_password(alphabet, length):
     """Generate a password of the given length from the given alphabet."""
 
-    _print('Generating password.')
+    print('Generating password.')
     password = []
     try:
         with open('/dev/random', 'rb') as rand_fh:
@@ -142,17 +138,17 @@ def main(args):
     pargs = parser.parse_args(args)
 
     if pargs.command == 'wifi-aes':
-        _print(make_wifi_aes_key())
+        print(make_wifi_aes_key())
     elif pargs.command == 'password':
         symbol_sets = pargs.alphabet.split('+')
         alphabet = ''
         for symbol_set in set(symbol_sets):
             alphabet += ALPHABETS[symbol_set.lower()]
-        _print('Using alphabet:\n{!r}'.format(alphabet))
-        _print(make_password(alphabet, pargs.length))
+        print('Using alphabet:\n{!r}'.format(alphabet))
+        print(make_password(alphabet, pargs.length))
     elif pargs.command == 'correct-horse':
         password = correct_horse_battery_staple(pargs.count)
-        _print('{}'.format(password))
+        print(password)
     else:
         parser.print_usage(_sys.stderr)
         _sys.exit(1)
