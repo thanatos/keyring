@@ -10,7 +10,8 @@ import platform
 import subprocess
 import sys
 
-from . import keystore
+from . import store
+from .store import base as _store_base
 from . import _term
 
 
@@ -83,8 +84,8 @@ def load_keystore(filename, password=None):
     if password is None:
         password = getpass.getpass()
     try:
-        objects = keystore.read_keystore(filename, password)
-    except keystore.DecryptionError:
+        objects = store.read_keystore(filename, password)
+    except store.DecryptionError:
         sys.stderr.write('Failed to decrypt keystore: wrong password?\n')
         sys.exit(1)
     return objects
@@ -142,8 +143,8 @@ def ks_set(args):
     sys.stdout.write('Enter data to store:\n')
     sys.stdout.write('(Send EOF to terminate.)\n')
     data = sys.stdin.buffer.read()
-    objects[key] = keystore.DataBlob(mimetype, data)
-    keystore.write_keystore(filename, password, objects)
+    objects[key] = _store_base.Item(mimetype, data)
+    store.write_keystore(filename, password, objects)
 
 
 def ks_delete(args):
@@ -159,7 +160,7 @@ def ks_delete(args):
         sys.exit(1)
 
     del objects[key]
-    keystore.write_keystore(filename, password, objects)
+    store.write_keystore(filename, password, objects)
 
 
 def ks_create(args):
@@ -186,7 +187,7 @@ def ks_create(args):
         sys.stderr.write('Passwords did not match.\n')
         sys.exit(1)
 
-    keystore.write_keystore(args.filename, password, {})
+    store.write_keystore(args.filename, password, {})
 
 
 def _choose_login_interactively(logins):
@@ -278,7 +279,7 @@ def ks_changepw(args):
         sys.stderr.write('Passwords did not match.\n')
         sys.exit(1)
 
-    keystore.write_keystore(filename, new_password, objects)
+    store.write_keystore(filename, new_password, objects)
 
 
 def main(args):
