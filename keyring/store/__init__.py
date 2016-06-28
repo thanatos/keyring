@@ -7,6 +7,7 @@ import tempfile as _tempfile
 import gnupg as _gnupg
 
 from . import v1_json
+from . import v2_zip
 
 
 class Gpg(object):
@@ -59,7 +60,12 @@ def read_keystore(filename, passphrase, gpg_context=None):
     with _io.BytesIO(decrypted_data.data) as data_as_bytes_io, \
             _io.BufferedReader(data_as_bytes_io) as decrypted_fileobj:
 
-        return v1_json.V1JsonStore.read(decrypted_fileobj)
+        if v2_zip.V2ZipStore.magic_detect(decrypted_fileobj):
+            decrypted_fileobj.seek(0)
+            return v2_zip.V2ZipStore.read(decrypted_fileobj)
+        else:
+            decrypted_fileobj.seek(0)
+            return v1_json.V1JsonStore.read(decrypted_fileobj)
 
 
 @_wrap_gpg

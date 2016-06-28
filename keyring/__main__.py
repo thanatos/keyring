@@ -12,7 +12,19 @@ import sys
 
 from . import store
 from .store import base as _store_base
+from .store import v1_json as _v1_json
+from .store import v2_zip as _v2_zip
 from . import _term
+
+
+def printf(fmt, *args, end=None, file=None, **kwargs):
+    print_kwargs = {}
+    if end is not None:
+        print_kwargs['end'] = end
+    if file is not None:
+        print_kwargs['file'] = file
+
+    print(fmt.format(*args, **kwargs), **print_kwargs)
 
 
 def _check_keyring_path_mode(path, expected_mode, type_str):
@@ -187,7 +199,35 @@ def ks_create(args):
         sys.stderr.write('Passwords did not match.\n')
         sys.exit(1)
 
-    store.write_keystore(args.filename, password, {})
+    store.write_keystore(args.filename, password, _v1_json.V1JsonStore())
+
+
+def ks_upgrade(args):
+    filename = _get_filename(args)
+    password = getpass.getpass()
+    objects = load_keystore(filename, password)
+
+    if isinstance(objects, _v2_zip.V2ZipStore):
+        print('This keyring is already in the latest format.')
+        sys.exit()
+
+    backup_path = filename + '.bak'
+    if os.path.exists(backup_path):
+        printf(
+            'I can\'t back up your current keyring, because the backup path {}'
+            ' already exists.',
+            backup_path,
+        )
+        sys.exit(1)
+    print('I am going to back up your current keyring here:')
+    print('  ' + backup_path)
+    os.rename(filename, backup_path)
+
+    new_store = _v2_zip.V2ZipStore()
+    for object_name, obj in objects.items():
+        new_store[object_name] = obj
+
+    store.write_keystore(filename, password, new_store)
 
 
 def _choose_login_interactively(logins):
@@ -294,6 +334,7 @@ def main(args):
         'delete': ks_delete,
         'copypw': ks_copypw,
         'change-password': ks_changepw,
+        'upgrade': ks_upgrade,
     }
 
     def add_filename(parser):
@@ -326,6 +367,9 @@ def main(args):
 
     copypw_parser = subparsers.add_parser('copypw', help='copy a password to the clipboard')
     add_filename(copypw_parser)
+
+    upgrade_parser = subparsers.add_parser('upgrade', help='upgrade the keyring to the latest format')
+    add_filename(upgrade_parser)
 
     change_password_parser = subparsers.add_parser(
         'change-password', help='change the password to the keyring'
