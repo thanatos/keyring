@@ -1,0 +1,47 @@
+.TH KEYRING 1 "2022-11-12"
+.SH NAME
+keyring \- Securely manage secrets within an encrypted datastore known as a
+"keyring".
+.SH SYNOPSIS
+
+\fBkeyring\fP \fBcreate\fP [\fB--keyring\fP \fIfile\fP]
+.br
+\fBkeyring\fP \fBedit\fP [\fB--keyring\fP \fIfile\fP]
+.br
+\fBkeyring\fP \fBlist\fP [\fB--keyring\fP \fIfile\fP]
+
+.SH DESCRIPTION
+\fBkeyring\fP manages a set of secrets in an encrypted datastore, called a
+"keyring". Typically, these are username & password combinations to, e.g.,
+website with which one has an accout.
+
+\fBkeyring\fP's underlying datastore is designed to be recoverable without
+\fBkeyring\fP: it is an \fBage\fP-encrypted ZIP file underneath, and you can
+use those utilities to get at the contents. The exact format of the items
+depends on what type of item it is, but generally, the items are JSON data, and
+the meaning of their contents straight-forward.
+
+.SS Common Options
+
+Most subcommands take these options:
+
+.TP
+\fB--keyring\fP \fIfile\fP
+The \fIfile\fP path to the keyring file to operate on.
+
+.SS \fBkeyring create\fP
+Create a new, empty keyring.
+
+.SS \fBkeyring edit\fP
+Edit an item on the keyring in your editor. This will open the item in your
+editor, as determined by the environment variable \fBEDITOR\fP.
+
+.SS \fBkeyring list\fP
+List the items on the keyring.
+
+.SH "SEE ALSO"
+age(1)
+
+.SH AUTHORS
+
+Roy Wellington Ⅳ

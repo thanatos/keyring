@@ -1,0 +1,13 @@
+type: "object"
+additionalProperties:
+  type: "object"
+  properties:
+    # The mimetype of the item.
+    "type":
+      type: "string"
+    # Whether to (by default) hide the item in UIs.
+    "hidden":
+      type: "bool"
+  required:
+    - "type"
+  additionalProperties: false
