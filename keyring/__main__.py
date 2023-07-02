@@ -2,6 +2,7 @@
 # coding: utf-8
 
 import argparse
+import base64
 import getpass
 import io
 import json
@@ -117,6 +118,49 @@ def ks_list(args):
                 name, obj.mimetype, t=_term
             )
         )
+
+
+def ks_export(args):
+    filename = _get_filename(args)
+    objects = load_keystore(filename)
+
+    first_item = True
+    passwords_not_unwrapped = set()
+    items_by_mime = {}
+    for name, obj in objects.items():
+        if obj.mimetype == 'application/login+json':
+            out_mimetype = 'application/prs.thanatos.keyring.password+json'
+        else:
+            out_mimetype = obj.mimetype
+        json_val = {
+            'name': name,
+            'mimetype': out_mimetype,
+        }
+        items_by_mime.setdefault(out_mimetype, 0)
+        items_by_mime[out_mimetype] += 1
+        try:
+            v = json.loads(obj.data)
+            if obj.mimetype == 'application/login+json' and isinstance(v, list) and len(v) == 1:
+                v = v[0]
+            elif obj.mimetype == 'application/login+json':
+                passwords_not_unwrapped.add(name)
+            mode = 'json'
+        except Exception:
+            v = base64.b64encode(obj.data).decode('ascii')
+            mode = 'base64'
+        json_val['data_encoding'] = mode
+        json_val['data'] = v
+        json_val_str = json.dumps(json_val)
+        if first_item:
+            first_item = False
+        else:
+            sys.stdout.write('---\n')
+        sys.stdout.write(json_val_str)
+        if not json_val_str.endswith('\n'):
+            sys.stdout.write('\n')
+    sys.stderr.write('(a few pieces of debug to help ensure this imports cleanly)\n')
+    sys.stderr.write(f'Password items not unwrapped: {passwords_not_unwrapped!r}\n')
+    sys.stderr.write(f'Items by mimetype: {json.dumps(items_by_mime)!r}\n')
 
 
 def _interactive_get(filename):
@@ -335,6 +379,7 @@ def main(args):
         'copypw': ks_copypw,
         'change-password': ks_changepw,
         'upgrade': ks_upgrade,
+        'export': ks_export,
     }
 
     def add_filename(parser):
@@ -370,6 +415,9 @@ def main(args):
 
     upgrade_parser = subparsers.add_parser('upgrade', help='upgrade the keyring to the latest format')
     add_filename(upgrade_parser)
+
+    export_parser = subparsers.add_parser('export', help='export the keyring to the next format')
+    add_filename(export_parser)
 
     change_password_parser = subparsers.add_parser(
         'change-password', help='change the password to the keyring'
