@@ -44,7 +44,7 @@ pub(crate) fn import(keyring_path: Option<PathBuf>) -> Result<(), ProgError> {
     Ok(())
 }
 
-fn validate_item(name: &str, mimetype: &str, data: &[u8]) -> Result<(), ProgError> {
+pub fn validate_item(name: &str, mimetype: &str, data: &[u8]) -> Result<(), ProgError> {
     match mimetype {
         m if m == PasswordItem::mimetype() => {
             if let Err(err) = serde_json::from_slice::<PasswordItem>(data) {
@@ -101,7 +101,7 @@ pub(crate) struct YamlItem {
 }
 
 impl YamlItem {
-    fn encode_data(&self) -> anyhow::Result<Vec<u8>> {
+    pub fn encode_data(&self) -> anyhow::Result<Vec<u8>> {
         match self.data_encoding {
             DataEncoding::Json => Ok(serde_json::to_string(&self.data)?.into_bytes()),
             DataEncoding::Base64 => {

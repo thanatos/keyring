@@ -139,7 +139,22 @@ pub(crate) fn edit_keyring_item(keyring_path: Option<PathBuf>) -> Result<(), Pro
         break item_under_edit;
     };
 
-    unimplemented!();
+    if item_under_edit.name != selected_item {
+        unimplemented!("need to get around to renames…");
+    }
+
+    let item_data_encoded = item_under_edit.encode_data()?;
+    crate::import_export::validate_item(
+        &item_under_edit.name,
+        &item_under_edit.mimetype,
+        &item_data_encoded,
+    )?;
+    let keyring_item = keyring::ItemOwned {
+        mimetype: item_under_edit.mimetype,
+        data: item_data_encoded,
+    };
+    keyring.set_item_raw(item_under_edit.name, keyring_item)?;
+    keyring.save()?;
     Ok(())
 }
 
